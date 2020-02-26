@@ -2,7 +2,7 @@ theory Chapter1
   imports Complex_Main
 
 begin
-declare [[smt_timeout = 120]]
+declare [[smt_timeout = 2000]]
 section \<open>Preface\<close>
 text \<open>
 \spike
@@ -407,7 +407,7 @@ proof (cases P)
       by simp
     obtain line2 where eq: "line2 = (A2Ordinary slope intercept2)" 
       by simp
-    have PonLine2: "a2meets P line2" try
+    have PonLine2: "a2meets P line2"
       by (simp add: P a eq)
     then show ?thesis
       by (smt A2Ordinary a2meets.elims(2) a2meets.simps(1) a2parallel_def eq) 
@@ -635,15 +635,32 @@ text\<open>\done \done\<close>
   (* Examples of some easy theorems about affine planes, not mentioned in Hartshorne *)
   (* Every point lies on some line *)
   lemma (in affine_plane) containing_line: " \<forall>S. \<exists>l. meets S l"
-    sorry
+    using a2 by blast
 
   (* Every line contains at least one point *)
   lemma (in affine_plane) contained_point: "\<forall>l. \<exists>S. meets S l"
-    sorry
+    proof -
+    { fix ll :: 'line
+      have "\<forall>p pa pb pc. ((pb = p \<or> collinear pc pa p) \<or> \<not> meets pa (esk6_2 pb p)) \<or> \<not> meets pc (esk6_2 pb p)"
+        by (metis a1 affine_plane_data.collinear_def) (* > 1.0 s, timed out *)
+      then have ff1: "\<forall>p pa pb. (pa = p \<or> collinear pb pa p) \<or> \<not> meets pb (esk6_2 pa p)"
+    by (metis a1) (* > 1.0 s, timed out *)
+    have "\<exists>p pa pb. (pb \<noteq> p \<and> pa \<noteq> p) \<and> \<not> collinear pb pa p"
+      using a3 by blast
+        then have "\<exists>p l pa. (l \<noteq> esk6_2 p pa \<and> p \<noteq> pa) \<and> meets pa l"
+          using ff1 by (metis a1)
+        then have "\<exists>l la. \<not> la || l"
+          by (metis a1 affine_plane_data.parallel_def) (* > 1.0 s, timed out *)
+        then have "\<exists>p. meets p ll"
+    by (metis (no_types) affine_plane.transitive_parallel affine_plane_axioms affine_plane_data.parallel_def) }
+      then show ?thesis
+        by metis
+    qed
 
   (* Two lines meet in at most one point *)
   lemma (in affine_plane) prop1P2: "\<lbrakk>l \<noteq> m; meets P l; meets P m; meets Q l; meets Q m\<rbrakk> \<Longrightarrow> P = Q"
-    sorry
+    using a1 by auto
+    
 
 (* Some HW Problems to give you practice with Isabelle:
 Try to state and prove these:
