@@ -1117,7 +1117,199 @@ text \<open>\done\<close>
 (*
 theorem projectivization_p1: "\<lbrakk>P \<noteq> Q; affine_plane meets; pm = projectivize meets\<rbrakk> \<Longrightarrow>  \<exists>l. pm P l \<and> pm Q l"
 sorry 
-*)
+*)             
+              
+locale projective_plane_quotient =
+  projective_plane_data meets
+  for meets :: "'point \<Rightarrow> 'line \<Rightarrow> bool" +
+assumes
+  p1: "P \<noteq> Q \<Longrightarrow> \<exists>!l. meets P l \<and> meets Q l" and
+  p2: "l \<noteq> m \<Longrightarrow> \<exists>!P. meets P l \<and> meets P m" and
+  p3: "\<exists>P Q R. P \<noteq> Q \<and> P \<noteq> R \<and> Q \<noteq> R \<and> \<not> collinear P Q R" and
+  p4: "\<forall> l. \<exists>P Q R. P \<noteq> Q \<and> P \<noteq> R \<and> Q \<noteq> R \<and> meets P l \<and> meets Q l \<and> meets R l"
+
+typedef pt = "{(x::real,y::real,z::real). (x \<noteq> 0 \<or> y \<noteq> 0 \<or> z \<noteq> 0)}"
+  morphisms Rep_pt Abs_pt
+  by (metis (mono_tags, lifting) case_prodI cosh_real_nonzero mem_Collect_eq)
+
+definition pt_x where "(pt_x l) = (fst (Rep_pt l))"
+definition pt_y where "(pt_y l) = (fst (snd (Rep_pt l)))"
+definition pt_z where "(pt_z l) = (snd (snd (Rep_pt l)))"
+
+lemma pts_eq: "(pt_x a) = (pt_x b) \<and> (pt_y a) = (pt_y b) \<and> (pt_z a) = (pt_z b) \<Longrightarrow> a = b"
+  by (metis Rep_pt_inject prod.expand pt_x_def pt_y_def pt_z_def)
+
+definition mult_pt:: "real \<Rightarrow> pt \<Rightarrow> pt" (infix "\<star>" 60) where
+    "(mult_pt m p) = (Abs_pt ((m * (pt_x p)), (m * (pt_y p)), (m * (pt_z p))))"
+
+definition homog :: "pt \<Rightarrow> pt \<Rightarrow> bool" where
+  "homog a b = (\<exists>m :: real. m \<noteq> 0 \<and> ((pt_x a) = m * (pt_x b)) \<and> ((pt_y a) = m * (pt_y b)) \<and> ((pt_z a) = m * (pt_z b)))"
+
+lemma sym_help:
+  fixes a :: pt fixes b :: pt
+  assumes a1: "(homog a b)"
+  shows "(homog b a)"
+  proof-
+    from a1 obtain m where p0: "m \<noteq> 0 \<and> ((pt_x a) = m * (pt_x b)) \<and> ((pt_y a) = m * (pt_y b)) \<and> ((pt_z a) = m * (pt_z b))"
+      using homog_def by auto
+    let ?mi = "1/m"
+    have p1: "((pt_x b) = ?mi * (pt_x a)) \<and> ((pt_y b) = ?mi * (pt_y a)) \<and> ((pt_z b) = ?mi * (pt_z a))"
+      by (simp add: p0)
+    show ?thesis
+      using homog_def one_divide_eq_0_iff p0 p1 by blast
+  qed
+
+lemma sym: "symp homog"
+  unfolding symp_def
+  using sym_help by blast
+
+lemma ref: "reflp homog"
+  unfolding reflp_def
+  unfolding homog_def
+  by force
+
+lemma trans_help:
+  fixes a :: pt fixes b :: pt fixes c :: pt
+  assumes a1: "(homog a b)"
+  assumes a2: "(homog b c)"
+  shows "(homog a c)"
+  proof-
+    from a1 obtain m1 where p0: "((pt_x a) = m1 * (pt_x b)) \<and> ((pt_y a) = m1 * (pt_y b)) \<and> ((pt_z a) = m1 * (pt_z b))"
+      using homog_def by auto
+    from a2 obtain m2 where p1: "((pt_x b) = m2 * (pt_x c)) \<and> ((pt_y b) = m2 * (pt_y c)) \<and> ((pt_z b) = m2 * (pt_z c))"
+      using homog_def by auto
+    let ?m3 = "m1 * m2"
+    have p1: "((pt_x a) = ?m3 * (pt_x c)) \<and> ((pt_y a) = ?m3 * (pt_y c)) \<and> ((pt_z a) = ?m3 * (pt_z c))"
+      by (simp add: p0 p1)
+    show ?thesis
+      by (smt a1 a2 homog_def mult_left_cancel mult_not_zero p1)
+  qed
+
+lemma trans: "transp homog"
+  unfolding transp_def
+  using trans_help by blast
+
+quotient_type ppt = "pt"/"homog"
+  morphisms Rep_pt Abs_pt
+  by (simp add: equivpI trans ref sym)
+
+definition pt_dot :: "pt \<Rightarrow> pt \<Rightarrow> real" where
+  "pt_dot a b = (pt_x a) * (pt_x b) + (pt_y a) * (pt_y b) + (pt_z a) * (pt_z b)"
+
+lemma pt_dot_sym: "(pt_dot a b) = (pt_dot b a)"
+  by (simp add: pt_dot_def)
+
+lemma scale_pt_helper_x:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_x a)"
+proof -
+  assume m_nz: "m \<noteq> 0"
+  show ?thesis
+    proof (cases "(pt_x a) = 0")
+      case True
+      have sthg_nz: "(pt_y a) \<noteq> 0 \<or> (pt_z a) \<noteq> 0"
+        by (metis (mono_tags, lifting) Rep_pt True fst_conv mem_Collect_eq prod.exhaust prod.simps(2) pt_x_def pt_y_def pt_z_def snd_conv)
+      have sthg_nz_2: "m * (pt_y a) \<noteq> 0 \<or> m * (pt_z a) \<noteq> 0"
+        using m_nz no_zero_divisors sthg_nz by blast
+      then show ?thesis
+        using Abs_pt_inverse pt_x_def by auto
+    next
+      case False
+      then show ?thesis
+        by (simp add: Abs_pt_inverse m_nz pt_x_def)
+    qed
+  qed
+
+lemma scale_pt_helper_y:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_y (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_y a)"
+proof -
+  assume m_nz: "m \<noteq> 0"
+  show ?thesis
+    proof (cases "(pt_y a) = 0")
+      case True
+      have sthg_nz: "(pt_x a) \<noteq> 0 \<or> (pt_z a) \<noteq> 0"
+        by (metis (mono_tags, lifting) Rep_pt True fst_conv mem_Collect_eq prod.exhaust prod.simps(2) pt_x_def pt_y_def pt_z_def snd_conv)
+      have sthg_nz_2: "m * (pt_x a) \<noteq> 0 \<or> m * (pt_z a) \<noteq> 0"
+        using m_nz no_zero_divisors sthg_nz by blast
+      then show ?thesis
+        using Abs_pt_inverse pt_y_def by auto
+    next
+      case False
+      then show ?thesis
+        by (simp add: Abs_pt_inverse m_nz pt_y_def)
+    qed
+  qed
+
+lemma scale_pt_helper_z:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_z a)"
+proof -
+  assume m_nz: "m \<noteq> 0"
+  show ?thesis
+    proof (cases "(pt_z a) = 0")
+      case True
+      have sthg_nz: "(pt_x a) \<noteq> 0 \<or> (pt_y a) \<noteq> 0"
+        by (metis (mono_tags, lifting) Rep_pt True fst_conv mem_Collect_eq prod.exhaust prod.simps(2) pt_x_def pt_y_def pt_z_def snd_conv)
+      have sthg_nz_2: "m * (pt_x a) \<noteq> 0 \<or> m * (pt_y a) \<noteq> 0"
+        using m_nz no_zero_divisors sthg_nz by blast
+      then show ?thesis
+        using Abs_pt_inverse pt_z_def by auto
+    next
+      case False
+      then show ?thesis
+        by (simp add: Abs_pt_inverse m_nz pt_z_def)
+    qed
+  qed
+
+lemma scale_pt:
+  fixes a :: pt and b :: pt
+  fixes m :: real
+  assumes m_nz: "m \<noteq> 0"
+  shows "(pt_dot (m \<star> a) b) = m * (pt_dot a b)"
+  proof -
+    have "pt_x (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) * pt_x b +
+    pt_y (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) * pt_y b +
+    pt_z (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) * pt_z b =
+    m * (pt_x a) * pt_x b + m * (pt_y a) * pt_y b + m * (pt_z a) * pt_z b"
+      by (simp add: m_nz scale_pt_helper_x scale_pt_helper_y scale_pt_helper_z)
+    have "... = m * (pt_x a * pt_x b + pt_y a * pt_y b + pt_z a * pt_z b)"
+      by argo
+    then show ?thesis
+      by (simp add: m_nz mult_pt_def pt_dot_def scale_pt_helper_x scale_pt_helper_y scale_pt_helper_z)
+  qed
+
+lift_definition dot_zero :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
+  is "\<lambda>x y. (pt_dot x y) = 0"
+  proof -
+    fix a :: pt and b :: pt and c :: pt and d :: pt
+    assume a1: "(homog a b)"
+    assume a2: "(homog c d)"
+    show "((pt_dot a c) = 0) = ((pt_dot b d) = 0)"
+    proof -
+      from a1 obtain m1 where p1: "m1 \<noteq> 0 \<and> ((pt_x a) = m1 * (pt_x b)) \<and> ((pt_y a) = m1 * (pt_y b)) \<and> ((pt_z a) = m1 * (pt_z b))"
+        using homog_def by auto
+      from a2 obtain m2 where p2: "m2 \<noteq> 0 \<and> ((pt_x c) = m2 * (pt_x d)) \<and> ((pt_y c) = m2 * (pt_y d)) \<and> ((pt_z c) = m2 * (pt_z d))"
+        using homog_def by auto
+      have ab: "a = m1 \<star> b"
+        unfolding mult_pt_def
+        by (metis Rep_pt_inverse p1 prod.sel(1) prod.sel(2) prod_eqI pt_x_def pt_y_def pt_z_def)
+      have cd: "c = m2 \<star> d"
+        unfolding mult_pt_def
+        by (metis Rep_pt_inverse p2 prod.sel(1) prod.sel(2) prod_eqI pt_x_def pt_y_def pt_z_def)
+      have p3: "(pt_dot a c) = (pt_dot (m1 \<star> b) c)"
+        using ab by simp
+      have p4: "... = (pt_dot (m1 \<star> b) (m2 \<star> d))"
+        using cd by simp
+      have p5: "... = m1 * (pt_dot b (m2 \<star> d))"
+        using scale_pt p1 by simp
+      have p6: "... = m1 * m2 * (pt_dot b d)"
+        using pt_dot_sym scale_pt p2 by auto
+      have p7: "(pt_dot a c) = m1 * m2 * (pt_dot b d)"
+        using p3 p4 p5 p6 by auto
+      show ?thesis
+        using a1 a2 homog_def p1 p2 p7 pt_dot_def by auto
+      qed
+    qed
+
+fun rp2meets :: "ppt \<Rightarrow> ppt \<Rightarrow> bool" where
+    "rp2meets P l = (dot_zero P l)"
+
+theorem "projective_plane_quotient(rp2meets)"
+  sorry
+
 end
-
-
