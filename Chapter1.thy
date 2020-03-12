@@ -1190,7 +1190,7 @@ lemma trans: "transp homog"
   using trans_help by blast
 
 quotient_type ppt = "pt"/"homog"
-  morphisms Rep_pt Abs_pt
+  morphisms Rep_ppt Abs_ppt
   by (simp add: equivpI trans ref sym)
 
 definition pt_dot :: "pt \<Rightarrow> pt \<Rightarrow> real" where
@@ -1199,7 +1199,7 @@ definition pt_dot :: "pt \<Rightarrow> pt \<Rightarrow> real" where
 lemma pt_dot_sym: "(pt_dot a b) = (pt_dot b a)"
   by (simp add: pt_dot_def)
 
-lemma scale_pt_helper_x:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_x a)"
+lemma scale_pt_helper_x:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_x a)"
 proof -
   assume m_nz: "m \<noteq> 0"
   show ?thesis
@@ -1218,7 +1218,7 @@ proof -
     qed
   qed
 
-lemma scale_pt_helper_y:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_y (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_y a)"
+lemma scale_pt_helper_y:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_y (Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_y a)"
 proof -
   assume m_nz: "m \<noteq> 0"
   show ?thesis
@@ -1237,7 +1237,7 @@ proof -
     qed
   qed
 
-lemma scale_pt_helper_z:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_z a)"
+lemma scale_pt_helper_z:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_z a)"
 proof -
   assume m_nz: "m \<noteq> 0"
   show ?thesis
@@ -1306,10 +1306,296 @@ lift_definition dot_zero :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
       qed
     qed
 
-fun rp2meets :: "ppt \<Rightarrow> ppt \<Rightarrow> bool" where
-    "rp2meets P l = (dot_zero P l)"
+definition rp2meets :: "ppt \<Rightarrow> ppt \<Rightarrow> bool" where
+  "rp2meets P l = (dot_zero P l)"
+
+definition mag2 :: "pt \<Rightarrow> real" where
+  "mag2 P = (pt_x P)*(pt_x P) + (pt_y P)*(pt_y P) + (pt_z P)*(pt_z P)"
+
+lemma nz_coord: "(pt_x P) \<noteq> 0 \<or> (pt_y P) \<noteq> 0 \<or> (pt_z P) \<noteq> 0"
+  by (smt Rep_pt mem_Collect_eq prod.sel(1) prod.sel(2) prod.simps(2) prod_eqI pt_x_def pt_y_def pt_z_def)
+
+lemma mag2pos: "mag2 P > 0"
+proof -
+  have xpos: "(pt_x P)*(pt_x P) \<ge> 0"
+    by simp
+  have ypos: "(pt_y P)*(pt_y P) \<ge> 0"
+    by simp
+  have zpos: "(pt_z P)*(pt_z P) \<ge> 0"
+    by simp
+  have some_nz: "(pt_x P)*(pt_x P) \<noteq> 0 \<or> (pt_y P)*(pt_y P) \<noteq> 0 \<or> (pt_z P)*(pt_z P) \<noteq> 0"
+    using nz_coord by auto
+  show ?thesis
+    by (smt mag2_def some_nz xpos ypos zpos)
+qed
+
+(* cross might not be a point*)
+definition cross :: "pt \<Rightarrow> pt \<Rightarrow> pt" where
+  "cross P Q = (Abs_pt ( (pt_y P) * (pt_z Q) - (pt_z P) * (pt_y Q),
+                     (pt_z P) * (pt_x Q) - (pt_x P) * (pt_z Q),
+                     (pt_x P) * (pt_y Q) - (pt_y P) * (pt_x Q)))"
+
+lemma cross_domain:
+  fixes P fixes Q
+  assumes "\<not>(homog P Q)"
+  shows "cross P Q \<noteq> Abs_pt (0,0,0)"
+  sorry
+
+(*value "(dot_pt (Abs_pt (x, y, z)) (Abs_pt (x, y, z)))"
+value "Abs_pt (1 :: real,1 :: real,1 :: real)"
+value "(cross (Abs_pt (1, 1, 1)) (Abs_pt (1, 1, 1)))"*)
+
+lemma "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (m \<star> A) = m * pt_x A"
+  unfolding mult_pt_def
+  using Chapter1.scale_pt_helper_x by simp
+
+(*lemma "\<lbrakk>t \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> (Rep_pt (Abs_pt t)) = t"
+  using Abs_pt_inverse by blast*)
+
+lemma pt_x_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_x (Abs_pt (x, y, z)) = x"
+  using Abs_pt_inverse pt_x_def by simp
+
+lemma pt_y_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_y (Abs_pt (x, y, z)) = y"
+  using Abs_pt_inverse pt_y_def by simp
+
+lemma pt_z_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_z (Abs_pt (x, y, z)) = z"
+  using Abs_pt_inverse pt_z_def by simp
+
+lemma "\<lbrakk>m \<noteq> 0; (x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> m \<star> (Abs_pt (x, y, z)) = (Abs_pt (m * x, m * y, m * z))"
+  using Abs_pt_inverse mult_pt_def pt_x_def pt_y_def pt_z_def by simp
+
+(*lemma "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> (cross (m \<star> A) B) = m \<star> (cross A B)"
+  unfolding cross_def
+proof -
+  let ?x = "pt_y A * pt_z B - pt_z A * pt_y B"
+  let ?y = "pt_z A * pt_x B - pt_x A * pt_z B"
+  let ?z = "pt_x A * pt_y B - pt_y A * pt_x B"
+  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_y (m \<star> A) * pt_z B - pt_z (m \<star> A) * pt_y B
+        = m * pt_y A * pt_z B - m * pt_z A * pt_y B"
+    by (simp add: mult_pt_def scale_pt_helper_y scale_pt_helper_z)
+  then have x_eq: "... = m * ?x"
+    by argo
+  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (m \<star> A) * pt_x B - pt_x (m \<star> A) * pt_z B
+        = m * pt_z A * pt_x B - m * pt_x A * pt_z B"
+    by (simp add: mult_pt_def scale_pt_helper_z scale_pt_helper_x)
+  then have y_eq: "... = m * ?y"
+    by argo
+  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (m \<star> A) * pt_y B - pt_y (m \<star> A) * pt_x B
+        = m * pt_x A * pt_y B - m * pt_y A * pt_x B"
+    by (simp add: mult_pt_def scale_pt_helper_x scale_pt_helper_y)
+  then have z_eq: "... = m * ?z"
+    by argo
+  show ""
+    sorry
+qed*)
+
+(*
+lemma
+  fixes m
+  assumes m_nz: "m \<noteq> 0"
+  fixes A fixes B
+  shows "(cross (m \<star> A) B) = m \<star> (cross A B)"
+  unfolding cross_def
+proof -
+  let ?x = "pt_y A * pt_z B - pt_z A * pt_y B"
+  let ?y = "pt_z A * pt_x B - pt_x A * pt_z B"
+  let ?z = "pt_x A * pt_y B - pt_y A * pt_x B"
+  have "pt_y (m \<star> A) * pt_z B - pt_z (m \<star> A) * pt_y B
+        = m * pt_y A * pt_z B - m * pt_z A * pt_y B"
+    by (simp add: m_nz mult_pt_def scale_pt_helper_y scale_pt_helper_z)
+  then have x_eq: "... = m * ?x"
+    by argo
+  then have "pt_x (cross (m \<star> A) B) = m * (pt_x (cross A B))"
+    nitpick
+    (* not true, e.g., m = -1*)
+  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (m \<star> A) * pt_x B - pt_x (m \<star> A) * pt_z B
+        = m * pt_z A * pt_x B - m * pt_x A * pt_z B"
+    by (simp add: m_nz mult_pt_def scale_pt_helper_z scale_pt_helper_x)
+  then have y_eq: "... = m * ?y"
+    by argo
+  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (m \<star> A) * pt_y B - pt_y (m \<star> A) * pt_x B
+        = m * pt_x A * pt_y B - m * pt_y A * pt_x B"
+    by (simp add: m_nz mult_pt_def scale_pt_helper_x scale_pt_helper_y)
+  then have z_eq: "... = m * ?z"
+    by argo
+qed
+
+lemma "(cross (m1 \<star> A) (m2 \<star> B)) = m1 * m2 \<star> (cross A B)"
+  unfolding cross_def
+  unfolding pt_mult_def
+  sorry
+
+lemma "(homog A B) \<Longrightarrow> (homog C D) \<Longrightarrow> (homog (cross A C) (cross B D))"
+  try
+*)
+
+definition perp :: "pt \<Rightarrow> pt \<Rightarrow> bool" where
+  "perp A B = (pt_dot A B = 0)"
+
+lemma homog_to_perp:
+  fixes A fixes B
+  fixes C
+  assumes "homog A B"
+  shows "perp A C = perp B C"
+  by (metis Quotient_ppt Quotient_rel_abs assms dot_zero.abs_eq perp_def)
+
+lift_definition pperp :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
+  is "\<lambda>P Q. (perp P Q)"
+  by (metis Quotient_ppt Quotient_rel_abs dot_zero.abs_eq perp_def)
+
+lemma cross_perp:
+  fixes A fixes B
+  assumes "\<not>(homog A B)"
+  shows "perp A (cross A B)"
+proof -
+  let ?x = "pt_y A * pt_z B - pt_z A * pt_y B"
+  let ?y = "pt_z A * pt_x B - pt_x A * pt_z B"
+  let ?z = "pt_x A * pt_y B - pt_y A * pt_x B"
+  have nz: "cross A B \<noteq> Abs_pt (0, 0, 0)"
+    using assms cross_domain by auto
+  have x: "pt_x (cross A B) = ?x"
+    unfolding cross_def
+    using cross_def nz pt_x_inv by force
+  have y: "pt_y (cross A B) = ?y"
+    unfolding cross_def
+    using cross_def nz pt_y_inv by force
+  have z: "pt_z (cross A B) = ?z"
+    unfolding cross_def
+    using cross_def nz pt_z_inv by force
+  have p0: "(pt_dot A (cross A B)) = pt_x A * ?x + pt_y A * ?y + pt_z A * ?z"
+    using pt_dot_def cross_def x y z by auto
+  then have p1: "... = pt_x A * pt_y A * pt_z B - pt_x A * pt_y A * pt_z B
+                 + pt_y A * pt_z A * pt_x B - pt_y A * pt_z A * pt_x B
+                 + pt_z A * pt_x A * pt_y B - pt_z A * pt_x A * pt_y B"
+    by argo
+  then have goal: "(pt_dot A (cross A B)) = 0"
+    using p0 p1 by simp
+  show ?thesis
+    using goal perp_def by auto
+qed
+
+lemma perp_to_homog:
+  fixes a fixes b
+  fixes P fixes Q
+  assumes "\<not>(homog a b)"
+  assumes "perp a P" assumes "perp b P"
+  assumes "perp a Q" assumes "perp b Q"
+  shows "homog P Q"
+  sorry
+
+lemma doubly_pperp:
+  fixes a fixes b
+  fixes P fixes Q
+  assumes "a \<noteq> b"
+  assumes "pperp a P" assumes "pperp a Q"
+  assumes "pperp b P" assumes "pperp b Q"
+  shows "P = Q"
+  sorry
+  (* two planes intersect in a line*)
+
+lemma cross_homog:
+  fixes A fixes B
+  fixes C fixes D
+  assumes "homog A B"
+  assumes "homog C D"
+  shows "homog (cross A C) (cross B D)"
+proof -
+  have "perp (cross A C) A"
+    by (simp add: cross_perp perp_def pt_dot_sym)
+  have "perp (cross B D) B"
+    by (simp add: cross_perp perp_def pt_dot_sym)
+  show ?thesis
+    using assms(1) cross_perp homog_to_perp perp_def perp_to_homog by sledgehammer
+qed
+
+lift_definition cross_ppt :: "ppt \<Rightarrow> ppt \<Rightarrow> ppt" is
+  "\<lambda>p q. cross p q"
+  (*using cross_homog by simp*)
+
+(*
+definition cross_ppt :: "ppt \<Rightarrow> ppt \<Rightarrow> pt" where
+  "cross_ppt P Q = (cross (Rep_ppt P) (Rep_ppt Q))"
+*)
+
+lemma thg:
+  fixes x and y and z
+  assumes "(x \<noteq> 0) \<or> (y \<noteq> 0) \<or> (z \<noteq> 0)"
+  shows "(Rep_pt (Abs_pt (x, y, z))) = (x, y, z)"
+  using Abs_pt_inverse assms by auto
+
+lemma connecting_line_help:
+  fixes P :: pt and Q :: pt and l :: pt
+  assumes nh: "\<not>(homog P Q)"
+  assumes a1: "l = (cross P Q)"
+  shows "(pt_dot P l) = 0 \<and> (pt_dot Q l) = 0"
+proof -
+  let ?lx = "(pt_y P) * (pt_z Q) - (pt_z P) * (pt_y Q)"
+  let ?ly = "(pt_z P) * (pt_x Q) - (pt_x P) * (pt_z Q)"
+  let ?lz = "(pt_x P) * (pt_y Q) - (pt_y P) * (pt_x Q)"
+  have l_nz: "?lx \<noteq> 0 \<or> ?ly \<noteq> 0 \<or> ?lz \<noteq> 0"
+    sorry
+  have x: "l = (Abs_pt (?lx, ?ly, ?lz))"
+    using a1 cross_def by simp
+  have lx: "(pt_x l) = ?lx"
+    using x l_nz pt_x_def thg by auto
+  have ly: "(pt_y l) = ?ly"
+    using x l_nz pt_y_def thg by auto
+  have lz: "(pt_z l) = ?lz"
+    using x l_nz pt_z_def thg by auto
+  have "(pt_dot P l) = (pt_x P) * ?lx + (pt_y P) * ?ly + (pt_z P) * ?lz"
+    by (simp add: lx ly lz pt_dot_def)
+
+  then have p3: "(pt_dot P l) = 0"
+    by argo
+  have "(pt_dot Q l) = (pt_x Q) * ?lx + (pt_y Q) * ?ly + (pt_z Q) * ?lz"
+    by (simp add: lx ly lz pt_dot_def)
+  then have p4: "(pt_dot Q l) = 0"
+    by argo
+
+  show ?thesis
+    using p3 p4 by blast
+qed
+
+lemma connecting_line:
+  fixes P :: ppt and Q :: ppt and l :: pt
+  assumes ne: "P \<noteq> Q"
+  assumes "l = (cross_ppt P Q)"
+  shows "rp2meets P (Abs_ppt l) \<and> rp2meets Q (Abs_ppt l)"
+proof -
+  let ?p = "(Rep_ppt P)"
+  let ?q = "(Rep_ppt Q)"
+  have a0: "\<not>(homog ?p ?q)"
+    by (meson Quotient_ppt Quotient_rel_rep ne)
+  have p1: "(pt_dot ?p l) = 0 \<and> (pt_dot ?q l) = 0"
+    using a0 assms(2) connecting_line_help cross_ppt_def by auto
+  have p2: "(dot_zero P (Abs_ppt l)) \<and> (dot_zero Q (Abs_ppt l))"
+    by (metis Quotient3_abs_rep Quotient3_ppt dot_zero.abs_eq p1)
+  show ?thesis
+    using p2 rp2meets_def by auto
+qed
+
+lemma unique_connecting_line:
+  fixes P :: ppt and Q :: ppt and l :: ppt
+  assumes ne: "P \<noteq> Q"
+  assumes mts: "rp2meets P l \<and> rp2meets Q l"
+  shows "l = (Abs_ppt (cross_ppt P Q))"
+proof -
+  have "(dot_zero P l)"
+    using mts rp2meets_def by auto
+  have "(dot_zero Q l)"
+    using mts rp2meets_def by auto
+  have "(pt_dot (Rep_ppt P) (Rep_ppt l)) = 0"
+    using \<open>dot_zero P l\<close> dot_zero.rep_eq by blast
+  (*have "(pt_x P) * (pt_x l) + (pt_y P) * (pt_y l) + (pt_z P) * (pt_z l) = 0"
+    sorry*)
+  show ?thesis
+    sorry
+qed
+
+lemma proj_plane_axiom_1: "P \<noteq> Q \<Longrightarrow> \<exists>!l. rp2meets P l \<and> rp2meets Q l"
+  by (metis connecting_line unique_connecting_line)
 
 theorem "projective_plane_quotient(rp2meets)"
-  sorry
+  oops
 
 end
