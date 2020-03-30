@@ -1136,70 +1136,38 @@ definition pt_x where "(pt_x l) = (fst (Rep_pt l))"
 definition pt_y where "(pt_y l) = (fst (snd (Rep_pt l)))"
 definition pt_z where "(pt_z l) = (snd (snd (Rep_pt l)))"
 
-lemma pts_eq: "(pt_x a) = (pt_x b) \<and> (pt_y a) = (pt_y b) \<and> (pt_z a) = (pt_z b) \<Longrightarrow> a = b"
+(* helpful stuff for pts *)
+lemma pts_eq: "((pt_x a) = (pt_x b) \<and> (pt_y a) = (pt_y b) \<and> (pt_z a) = (pt_z b)) = (a = b)"
   by (metis Rep_pt_inject prod.expand pt_x_def pt_y_def pt_z_def)
 
+lemma pt_x_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_x (Abs_pt (x, y, z)) = x"
+  using Abs_pt_inverse pt_x_def by simp
+
+lemma pt_y_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_y (Abs_pt (x, y, z)) = y"
+  using Abs_pt_inverse pt_y_def by simp
+
+lemma pt_z_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_z (Abs_pt (x, y, z)) = z"
+  using Abs_pt_inverse pt_z_def by simp
+
+(* note: this might work in place of the individual coordinate ones*)
+lemma pt_inv:
+  assumes "(x \<noteq> 0) \<or> (y \<noteq> 0) \<or> (z \<noteq> 0)"
+  shows "(Rep_pt (Abs_pt (x, y, z))) = (x, y, z)"
+  using Abs_pt_inverse assms by auto
+
+(* "\<star>" multiplies a pt by a scalar *)
 definition mult_pt:: "real \<Rightarrow> pt \<Rightarrow> pt" (infix "\<star>" 60) where
     "(mult_pt m p) = (Abs_pt ((m * (pt_x p)), (m * (pt_y p)), (m * (pt_z p))))"
 
-definition homog :: "pt \<Rightarrow> pt \<Rightarrow> bool" where
-  "homog a b = (\<exists>m :: real. m \<noteq> 0 \<and> ((pt_x a) = m * (pt_x b)) \<and> ((pt_y a) = m * (pt_y b)) \<and> ((pt_z a) = m * (pt_z b)))"
-
-lemma sym_help:
-  fixes a :: pt fixes b :: pt
-  assumes a1: "(homog a b)"
-  shows "(homog b a)"
-  proof-
-    from a1 obtain m where p0: "m \<noteq> 0 \<and> ((pt_x a) = m * (pt_x b)) \<and> ((pt_y a) = m * (pt_y b)) \<and> ((pt_z a) = m * (pt_z b))"
-      using homog_def by auto
-    let ?mi = "1/m"
-    have p1: "((pt_x b) = ?mi * (pt_x a)) \<and> ((pt_y b) = ?mi * (pt_y a)) \<and> ((pt_z b) = ?mi * (pt_z a))"
-      by (simp add: p0)
-    show ?thesis
-      using homog_def one_divide_eq_0_iff p0 p1 by blast
-  qed
-
-lemma sym: "symp homog"
-  unfolding symp_def
-  using sym_help by blast
-
-lemma ref: "reflp homog"
-  unfolding reflp_def
-  unfolding homog_def
-  by force
-
-lemma trans_help:
-  fixes a :: pt fixes b :: pt fixes c :: pt
-  assumes a1: "(homog a b)"
-  assumes a2: "(homog b c)"
-  shows "(homog a c)"
-  proof-
-    from a1 obtain m1 where p0: "((pt_x a) = m1 * (pt_x b)) \<and> ((pt_y a) = m1 * (pt_y b)) \<and> ((pt_z a) = m1 * (pt_z b))"
-      using homog_def by auto
-    from a2 obtain m2 where p1: "((pt_x b) = m2 * (pt_x c)) \<and> ((pt_y b) = m2 * (pt_y c)) \<and> ((pt_z b) = m2 * (pt_z c))"
-      using homog_def by auto
-    let ?m3 = "m1 * m2"
-    have p1: "((pt_x a) = ?m3 * (pt_x c)) \<and> ((pt_y a) = ?m3 * (pt_y c)) \<and> ((pt_z a) = ?m3 * (pt_z c))"
-      by (simp add: p0 p1)
-    show ?thesis
-      by (smt a1 a2 homog_def mult_left_cancel mult_not_zero p1)
-  qed
-
-lemma trans: "transp homog"
-  unfolding transp_def
-  using trans_help by blast
-
-quotient_type ppt = "pt"/"homog"
-  morphisms Rep_ppt Abs_ppt
-  by (simp add: equivpI trans ref sym)
-
+(* define dot product on pts*)
 definition pt_dot :: "pt \<Rightarrow> pt \<Rightarrow> real" where
   "pt_dot a b = (pt_x a) * (pt_x b) + (pt_y a) * (pt_y b) + (pt_z a) * (pt_z b)"
 
 lemma pt_dot_sym: "(pt_dot a b) = (pt_dot b a)"
   by (simp add: pt_dot_def)
 
-lemma scale_pt_helper_x:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_x a)"
+(* show that ca \<cdot> b = c(a \<cdot> b) for scalar c *)
+lemma dot_homog_helper_x:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_x a)"
 proof -
   assume m_nz: "m \<noteq> 0"
   show ?thesis
@@ -1218,7 +1186,7 @@ proof -
     qed
   qed
 
-lemma scale_pt_helper_y:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_y (Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_y a)"
+lemma dot_homog_helper_y:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_y (Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_y a)"
 proof -
   assume m_nz: "m \<noteq> 0"
   show ?thesis
@@ -1237,7 +1205,7 @@ proof -
     qed
   qed
 
-lemma scale_pt_helper_z:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_z a)"
+lemma dot_homog_helper_z:  "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) = m * (pt_z a)"
 proof -
   assume m_nz: "m \<noteq> 0"
   show ?thesis
@@ -1256,7 +1224,7 @@ proof -
     qed
   qed
 
-lemma scale_pt:
+lemma dot_homogeneous:
   fixes a :: pt and b :: pt
   fixes m :: real
   assumes m_nz: "m \<noteq> 0"
@@ -1266,25 +1234,82 @@ lemma scale_pt:
     pt_y (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) * pt_y b +
     pt_z (pt.Abs_pt (m * pt_x a, m * pt_y a, m * pt_z a)) * pt_z b =
     m * (pt_x a) * pt_x b + m * (pt_y a) * pt_y b + m * (pt_z a) * pt_z b"
-      by (simp add: m_nz scale_pt_helper_x scale_pt_helper_y scale_pt_helper_z)
+      by (simp add: m_nz dot_homog_helper_x dot_homog_helper_y dot_homog_helper_z)
     have "... = m * (pt_x a * pt_x b + pt_y a * pt_y b + pt_z a * pt_z b)"
       by argo
     then show ?thesis
-      by (simp add: m_nz mult_pt_def pt_dot_def scale_pt_helper_x scale_pt_helper_y scale_pt_helper_z)
+      by (simp add: m_nz mult_pt_def pt_dot_def dot_homog_helper_x dot_homog_helper_y dot_homog_helper_z)
   qed
 
+(* "scmult a b" iff a is a scalar multiple of b
+   This will be quotient for the ppt type *)
+(* TODO: this could be rewritten using mult_pt *)
+definition scmult :: "pt \<Rightarrow> pt \<Rightarrow> bool" where
+  "scmult a b = (\<exists>m :: real. m \<noteq> 0 \<and> ((pt_x a) = m * (pt_x b)) \<and> ((pt_y a) = m * (pt_y b)) \<and> ((pt_z a) = m * (pt_z b)))"
+
+(* Show that scmult is an equivalence relation *)
+lemma sym_help:
+  fixes a :: pt fixes b :: pt
+  assumes a1: "(scmult a b)"
+  shows "(scmult b a)"
+  proof-
+    from a1 obtain m where p0: "m \<noteq> 0 \<and> ((pt_x a) = m * (pt_x b)) \<and> ((pt_y a) = m * (pt_y b)) \<and> ((pt_z a) = m * (pt_z b))"
+      using scmult_def by auto
+    let ?mi = "1/m"
+    have p1: "((pt_x b) = ?mi * (pt_x a)) \<and> ((pt_y b) = ?mi * (pt_y a)) \<and> ((pt_z b) = ?mi * (pt_z a))"
+      by (simp add: p0)
+    show ?thesis
+      using scmult_def one_divide_eq_0_iff p0 p1 by blast
+  qed
+
+lemma sym: "symp scmult"
+  unfolding symp_def
+  using sym_help by blast
+
+lemma ref: "reflp scmult"
+  unfolding reflp_def
+  unfolding scmult_def
+  by force
+
+lemma trans_help:
+  fixes a :: pt fixes b :: pt fixes c :: pt
+  assumes a1: "(scmult a b)"
+  assumes a2: "(scmult b c)"
+  shows "(scmult a c)"
+  proof-
+    from a1 obtain m1 where p0: "((pt_x a) = m1 * (pt_x b)) \<and> ((pt_y a) = m1 * (pt_y b)) \<and> ((pt_z a) = m1 * (pt_z b))"
+      using scmult_def by auto
+    from a2 obtain m2 where p1: "((pt_x b) = m2 * (pt_x c)) \<and> ((pt_y b) = m2 * (pt_y c)) \<and> ((pt_z b) = m2 * (pt_z c))"
+      using scmult_def by auto
+    let ?m3 = "m1 * m2"
+    have p1: "((pt_x a) = ?m3 * (pt_x c)) \<and> ((pt_y a) = ?m3 * (pt_y c)) \<and> ((pt_z a) = ?m3 * (pt_z c))"
+      by (simp add: p0 p1)
+    show ?thesis
+      by (smt a1 a2 scmult_def mult_left_cancel mult_not_zero p1)
+  qed
+
+lemma trans: "transp scmult"
+  unfolding transp_def
+  using trans_help by blast
+
+(* ppt = "projective" point, i.e., point in homogeneous space *)
+quotient_type ppt = "pt"/"scmult"
+  morphisms Rep_ppt Abs_ppt
+  by (simp add: equivpI trans ref sym)
+
+(* "dot_zero a b" iff a \<cdot> b = 0. This will define rp2meets. *)
 lift_definition dot_zero :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
   is "\<lambda>x y. (pt_dot x y) = 0"
   proof -
     fix a :: pt and b :: pt and c :: pt and d :: pt
-    assume a1: "(homog a b)"
-    assume a2: "(homog c d)"
+    assume a1: "scmult a b"
+    assume a2: "scmult c d"
     show "((pt_dot a c) = 0) = ((pt_dot b d) = 0)"
     proof -
       from a1 obtain m1 where p1: "m1 \<noteq> 0 \<and> ((pt_x a) = m1 * (pt_x b)) \<and> ((pt_y a) = m1 * (pt_y b)) \<and> ((pt_z a) = m1 * (pt_z b))"
-        using homog_def by auto
+        using scmult_def by auto
       from a2 obtain m2 where p2: "m2 \<noteq> 0 \<and> ((pt_x c) = m2 * (pt_x d)) \<and> ((pt_y c) = m2 * (pt_y d)) \<and> ((pt_z c) = m2 * (pt_z d))"
-        using homog_def by auto
+        using scmult_def by auto
       have ab: "a = m1 \<star> b"
         unfolding mult_pt_def
         by (metis Rep_pt_inverse p1 prod.sel(1) prod.sel(2) prod_eqI pt_x_def pt_y_def pt_z_def)
@@ -1296,18 +1321,23 @@ lift_definition dot_zero :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
       have p4: "... = (pt_dot (m1 \<star> b) (m2 \<star> d))"
         using cd by simp
       have p5: "... = m1 * (pt_dot b (m2 \<star> d))"
-        using scale_pt p1 by simp
+        using dot_homogeneous p1 by simp
       have p6: "... = m1 * m2 * (pt_dot b d)"
-        using pt_dot_sym scale_pt p2 by auto
+        using pt_dot_sym dot_homogeneous p2 by auto
       have p7: "(pt_dot a c) = m1 * m2 * (pt_dot b d)"
         using p3 p4 p5 p6 by auto
       show ?thesis
-        using a1 a2 homog_def p1 p2 p7 pt_dot_def by auto
+        using a1 a2 scmult_def p1 p2 p7 pt_dot_def by auto
       qed
     qed
 
 definition rp2meets :: "ppt \<Rightarrow> ppt \<Rightarrow> bool" where
   "rp2meets P l = (dot_zero P l)"
+
+(*
+  =======================================
+   Magnitude stuff (works but abandoned)
+  =======================================
 
 definition mag2 :: "pt \<Rightarrow> real" where
   "mag2 P = (pt_x P)*(pt_x P) + (pt_y P)*(pt_y P) + (pt_z P)*(pt_z P)"
@@ -1328,68 +1358,91 @@ proof -
   show ?thesis
     by (smt mag2_def some_nz xpos ypos zpos)
 qed
+*)
 
-(* cross might not be a point*)
+(* Goal: define cross products on ppts by lifting this. *)
 definition cross :: "pt \<Rightarrow> pt \<Rightarrow> pt" where
   "cross P Q = (Abs_pt ( (pt_y P) * (pt_z Q) - (pt_z P) * (pt_y Q),
                      (pt_z P) * (pt_x Q) - (pt_x P) * (pt_z Q),
                      (pt_x P) * (pt_y Q) - (pt_y P) * (pt_x Q)))"
 
 lemma cross_domain:
-  fixes P fixes Q
-  assumes "\<not>(homog P Q)"
+  assumes "\<not>(scmult P Q)"
   shows "cross P Q \<noteq> Abs_pt (0,0,0)"
   sorry
 
-(*value "(dot_pt (Abs_pt (x, y, z)) (Abs_pt (x, y, z)))"
-value "Abs_pt (1 :: real,1 :: real,1 :: real)"
-value "(cross (Abs_pt (1, 1, 1)) (Abs_pt (1, 1, 1)))"*)
+(* question: why doesn't this work???????? *)
+value "Abs_pt (1 :: real, 1, 1)"
+(* I'd like to be able to say something like this *)
+value "(cross (Abs_pt (1, 1, 1)) (Abs_pt (1, 1, 1)))"
+
+(* 
+  ========================================================
+   Related stuff that, in light of the fundamental issue
+   (how to prove cross_domain) is probably all junk:
+  ========================================================
+
+lemma pts_eq1:
+  fixes P fixes Q
+  assumes "pt_x P = pt_x Q"
+  assumes "pt_y P = pt_y Q"
+  assumes "pt_z P = pt_z Q"
+  shows "P = Q"
+  using assms(1) assms(2) assms(3) pts_eq by blast
+
+lemma pts_uneq:
+  assumes "pt_x P \<noteq> pt_x Q \<or> pt_y P \<noteq> pt_y Q \<or> pt_z P \<noteq> pt_z Q"
+  shows "P \<noteq> Q"
+  using assms by blast
+
+lemma coord_helper_x:
+  assumes "x \<noteq> 0"
+  assumes "P = Abs_pt (x, y, z)"
+  shows "pt_x P = x"
+  by (simp add: Abs_pt_inverse assms(1) assms(2) pt_x_def)
 
 lemma "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (m \<star> A) = m * pt_x A"
   unfolding mult_pt_def
-  using Chapter1.scale_pt_helper_x by simp
+  using Chapter1.dot_homog_helper_x by simp
 
-(*lemma "\<lbrakk>t \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> (Rep_pt (Abs_pt t)) = t"
-  using Abs_pt_inverse by blast*)
-
-lemma pt_x_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_x (Abs_pt (x, y, z)) = x"
-  using Abs_pt_inverse pt_x_def by simp
-
-lemma pt_y_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_y (Abs_pt (x, y, z)) = y"
-  using Abs_pt_inverse pt_y_def by simp
-
-lemma pt_z_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_z (Abs_pt (x, y, z)) = z"
-  using Abs_pt_inverse pt_z_def by simp
+lemma "\<lbrakk>t \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> (Rep_pt (Abs_pt t)) = t"
+  using Abs_pt_inverse by blast
 
 lemma "\<lbrakk>m \<noteq> 0; (x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> m \<star> (Abs_pt (x, y, z)) = (Abs_pt (m * x, m * y, m * z))"
   using Abs_pt_inverse mult_pt_def pt_x_def pt_y_def pt_z_def by simp
+*)
 
-(*lemma "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> (cross (m \<star> A) B) = m \<star> (cross A B)"
-  unfolding cross_def
+(* 
+  ========================================================
+   Various attempts to show the exact effect of scalar
+   multiplication on cross product. These all go nowhere.
+   Later abandoned.
+  ========================================================
+
+lemma "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> (cross (m \<star> A) B) = m \<star> (cross A B)"
 proof -
   let ?x = "pt_y A * pt_z B - pt_z A * pt_y B"
   let ?y = "pt_z A * pt_x B - pt_x A * pt_z B"
   let ?z = "pt_x A * pt_y B - pt_y A * pt_x B"
   have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_y (m \<star> A) * pt_z B - pt_z (m \<star> A) * pt_y B
         = m * pt_y A * pt_z B - m * pt_z A * pt_y B"
-    by (simp add: mult_pt_def scale_pt_helper_y scale_pt_helper_z)
+    by (simp add: mult_pt_def dot_homog_helper_y dot_homog_helper_z)
   then have x_eq: "... = m * ?x"
     by argo
   have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (m \<star> A) * pt_x B - pt_x (m \<star> A) * pt_z B
         = m * pt_z A * pt_x B - m * pt_x A * pt_z B"
-    by (simp add: mult_pt_def scale_pt_helper_z scale_pt_helper_x)
+    by (simp add: mult_pt_def dot_homog_helper_z dot_homog_helper_x)
   then have y_eq: "... = m * ?y"
     by argo
   have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (m \<star> A) * pt_y B - pt_y (m \<star> A) * pt_x B
         = m * pt_x A * pt_y B - m * pt_y A * pt_x B"
-    by (simp add: mult_pt_def scale_pt_helper_x scale_pt_helper_y)
+    by (simp add: mult_pt_def dot_homog_helper_x dot_homog_helper_y)
   then have z_eq: "... = m * ?z"
     by argo
-  show ""
-    sorry
-qed*)
+  show ?thesis
+    oops
+qed
 
-(*
 lemma
   fixes m
   assumes m_nz: "m \<noteq> 0"
@@ -1402,50 +1455,48 @@ proof -
   let ?z = "pt_x A * pt_y B - pt_y A * pt_x B"
   have "pt_y (m \<star> A) * pt_z B - pt_z (m \<star> A) * pt_y B
         = m * pt_y A * pt_z B - m * pt_z A * pt_y B"
-    by (simp add: m_nz mult_pt_def scale_pt_helper_y scale_pt_helper_z)
+    by (simp add: m_nz mult_pt_def dot_homog_helper_y dot_homog_helper_z)
   then have x_eq: "... = m * ?x"
     by argo
   then have "pt_x (cross (m \<star> A) B) = m * (pt_x (cross A B))"
-    nitpick
-    (* not true, e.g., m = -1*)
+    oops
   have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (m \<star> A) * pt_x B - pt_x (m \<star> A) * pt_z B
         = m * pt_z A * pt_x B - m * pt_x A * pt_z B"
-    by (simp add: m_nz mult_pt_def scale_pt_helper_z scale_pt_helper_x)
+    by (simp add: m_nz mult_pt_def dot_homog_helper_z dot_homog_helper_x)
   then have y_eq: "... = m * ?y"
     by argo
   have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (m \<star> A) * pt_y B - pt_y (m \<star> A) * pt_x B
         = m * pt_x A * pt_y B - m * pt_y A * pt_x B"
-    by (simp add: m_nz mult_pt_def scale_pt_helper_x scale_pt_helper_y)
+    by (simp add: m_nz mult_pt_def dot_homog_helper_x dot_homog_helper_y)
   then have z_eq: "... = m * ?z"
     by argo
 qed
 
 lemma "(cross (m1 \<star> A) (m2 \<star> B)) = m1 * m2 \<star> (cross A B)"
   unfolding cross_def
-  unfolding pt_mult_def
-  sorry
+  unfolding mult_pt_def
+  oops
+*)
 
-lemma "(homog A B) \<Longrightarrow> (homog C D) \<Longrightarrow> (homog (cross A C) (cross B D))"
-  try
+
+
+
+(* 
+  ========================================================
+   The new strategy: ignore magnitudes. This is better.
+  ========================================================
 *)
 
 definition perp :: "pt \<Rightarrow> pt \<Rightarrow> bool" where
   "perp A B = (pt_dot A B = 0)"
 
-lemma homog_to_perp:
-  fixes A fixes B
-  fixes C
-  assumes "homog A B"
-  shows "perp A C = perp B C"
-  by (metis Quotient_ppt Quotient_rel_abs assms dot_zero.abs_eq perp_def)
-
 lift_definition pperp :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
   is "\<lambda>P Q. (perp P Q)"
   by (metis Quotient_ppt Quotient_rel_abs dot_zero.abs_eq perp_def)
 
+(* this makes me think maybe scmult should be called "parallel" instead *)
 lemma cross_perp:
-  fixes A fixes B
-  assumes "\<not>(homog A B)"
+  assumes "\<not>(scmult A B)"
   shows "perp A (cross A B)"
 proof -
   let ?x = "pt_y A * pt_z B - pt_z A * pt_y B"
@@ -1474,58 +1525,55 @@ proof -
     using goal perp_def by auto
 qed
 
-lemma perp_to_homog:
-  fixes a fixes b
-  fixes P fixes Q
-  assumes "\<not>(homog a b)"
+(* there's only one line perpendicular to a plane (two different vectors) *)
+lemma perp_to_scmult:
+  assumes "\<not>(scmult a b)"
   assumes "perp a P" assumes "perp b P"
   assumes "perp a Q" assumes "perp b Q"
-  shows "homog P Q"
+  shows "scmult P Q"
   sorry
 
+(* same thing with homogeneous types *)
 lemma doubly_pperp:
-  fixes a fixes b
-  fixes P fixes Q
   assumes "a \<noteq> b"
-  assumes "pperp a P" assumes "pperp a Q"
-  assumes "pperp b P" assumes "pperp b Q"
+  assumes "pperp a P" assumes "pperp b P"
+  assumes "pperp a Q" assumes "pperp b Q"
   shows "P = Q"
   sorry
-  (* two planes intersect in a line*)
 
-lemma cross_homog:
-  fixes A fixes B
-  fixes C fixes D
-  assumes "homog A B"
-  assumes "homog C D"
-  shows "homog (cross A C) (cross B D)"
+(* The big goal. If true, it would be a proof for the lift
+   definition of cross_ppt. Unfortunately, it's only true assuming
+   that \<not>(scmult A C) and \<not>(scmult B D). But that assumption
+   won't work for the lift definition. *)
+lemma cross_scmult:
+  assumes "scmult A B"
+  assumes "scmult C D"
+  shows "scmult (cross A C) (cross B D)"
 proof -
   have "perp (cross A C) A"
-    by (simp add: cross_perp perp_def pt_dot_sym)
+    sorry (*by (simp add: cross_perp perp_def pt_dot_sym)*)
   have "perp (cross B D) B"
-    by (simp add: cross_perp perp_def pt_dot_sym)
+    sorry (*by (simp add: cross_perp perp_def pt_dot_sym)*)
   show ?thesis
-    using assms(1) cross_perp homog_to_perp perp_def perp_to_homog by sledgehammer
-qed
+    using assms(1) cross_perp pperp_def perp_def perp_to_scmult
+  oops
 
 lift_definition cross_ppt :: "ppt \<Rightarrow> ppt \<Rightarrow> ppt" is
   "\<lambda>p q. cross p q"
-  (*using cross_homog by simp*)
+  (*using cross_scmult by simp*)
+  oops
 
-(*
+(* Another possible option: manually use Rep_ppt, return a pt.
+   This seems inelegant. Not sure if it just pushes the problem
+   down the road. *)
 definition cross_ppt :: "ppt \<Rightarrow> ppt \<Rightarrow> pt" where
-  "cross_ppt P Q = (cross (Rep_ppt P) (Rep_ppt Q))"
-*)
+  "cross_ppt P Q = cross (Rep_ppt P) (Rep_ppt Q)"
 
-lemma thg:
-  fixes x and y and z
-  assumes "(x \<noteq> 0) \<or> (y \<noteq> 0) \<or> (z \<noteq> 0)"
-  shows "(Rep_pt (Abs_pt (x, y, z))) = (x, y, z)"
-  using Abs_pt_inverse assms by auto
-
+(* Here are some  ideas for how to get to axiom 1 from the
+   new cross_ppt that returns a pt *)
 lemma connecting_line_help:
   fixes P :: pt and Q :: pt and l :: pt
-  assumes nh: "\<not>(homog P Q)"
+  assumes nh: "\<not>(scmult P Q)"
   assumes a1: "l = (cross P Q)"
   shows "(pt_dot P l) = 0 \<and> (pt_dot Q l) = 0"
 proof -
@@ -1537,11 +1585,11 @@ proof -
   have x: "l = (Abs_pt (?lx, ?ly, ?lz))"
     using a1 cross_def by simp
   have lx: "(pt_x l) = ?lx"
-    using x l_nz pt_x_def thg by auto
+    using x l_nz pt_x_def pt_inv by auto
   have ly: "(pt_y l) = ?ly"
-    using x l_nz pt_y_def thg by auto
+    using x l_nz pt_y_def pt_inv by auto
   have lz: "(pt_z l) = ?lz"
-    using x l_nz pt_z_def thg by auto
+    using x l_nz pt_z_def pt_inv by auto
   have "(pt_dot P l) = (pt_x P) * ?lx + (pt_y P) * ?ly + (pt_z P) * ?lz"
     by (simp add: lx ly lz pt_dot_def)
 
@@ -1564,10 +1612,11 @@ lemma connecting_line:
 proof -
   let ?p = "(Rep_ppt P)"
   let ?q = "(Rep_ppt Q)"
-  have a0: "\<not>(homog ?p ?q)"
+  have a0: "\<not>(scmult ?p ?q)"
     by (meson Quotient_ppt Quotient_rel_rep ne)
   have p1: "(pt_dot ?p l) = 0 \<and> (pt_dot ?q l) = 0"
-    using a0 assms(2) connecting_line_help cross_ppt_def by auto
+    (*using a0 assms(2) connecting_line_help cross_ppt_def by auto*)
+    sorry
   have p2: "(dot_zero P (Abs_ppt l)) \<and> (dot_zero Q (Abs_ppt l))"
     by (metis Quotient3_abs_rep Quotient3_ppt dot_zero.abs_eq p1)
   show ?thesis
