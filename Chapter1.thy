@@ -1149,6 +1149,9 @@ lemma pt_y_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow
 lemma pt_z_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_z (Abs_pt (x, y, z)) = z"
   using Abs_pt_inverse pt_z_def by simp
 
+lemma pt_nz: "\<not>(pt_x P = 0 \<and> pt_y P = 0 \<and> pt_z P = 0)"
+  by (metis (mono_tags, lifting) Rep_pt mem_Collect_eq prod.case_eq_if pt_x_def pt_y_def pt_z_def)
+
 (* note: this might work in place of the individual coordinate ones*)
 lemma pt_inv:
   assumes "(x \<noteq> 0) \<or> (y \<noteq> 0) \<or> (z \<noteq> 0)"
@@ -1361,15 +1364,118 @@ qed
 *)
 
 (* Goal: define cross products on ppts by lifting this. *)
-definition cross :: "pt \<Rightarrow> pt \<Rightarrow> pt" where
-  "cross P Q = (Abs_pt ( (pt_y P) * (pt_z Q) - (pt_z P) * (pt_y Q),
-                     (pt_z P) * (pt_x Q) - (pt_x P) * (pt_z Q),
-                     (pt_x P) * (pt_y Q) - (pt_y P) * (pt_x Q)))"
+definition cross_x :: "pt \<Rightarrow> pt \<Rightarrow> real" where
+  "cross_x P Q = (pt_y P) * (pt_z Q) - (pt_z P) * (pt_y Q)"
 
-lemma cross_domain:
+definition cross_y :: "pt \<Rightarrow> pt \<Rightarrow> real" where
+  "cross_y P Q = (pt_z P) * (pt_x Q) - (pt_x P) * (pt_z Q)"
+
+definition cross_z :: "pt \<Rightarrow> pt \<Rightarrow> real" where
+  "cross_z P Q = (pt_x P) * (pt_y Q) - (pt_y P) * (pt_x Q)"
+
+definition cross :: "pt \<Rightarrow> pt \<Rightarrow> pt" where
+  "cross P Q = (if scmult P Q then P
+                else (Abs_pt ( cross_x P Q, cross_y P Q, cross_z P Q)))"
+
+(* "vectors in different directions have a nonzero cross-product"
+   This is a proof about the formula for cross product, in terms
+   of cross_x, cross_y, cross_z. It says nothing about the cross
+   function. *)
+lemma cross_nz:
+  assumes "cross_x P Q = 0 \<and> cross_y P Q = 0 \<and> cross_z P Q = 0"
+  shows "scmult P Q"
+proof cases
+  assume x_nz: "pt_x P \<noteq> 0 \<and> pt_x Q \<noteq> 0"
+  let ?k = "pt_x P / pt_x Q"
+  have k_nz: "?k \<noteq> 0" using x_nz by simp
+  have xk: "pt_x P = ?k * pt_x Q" using x_nz by simp
+  have yk: "pt_y P = ?k * pt_y Q" using assms cross_z_def x_nz by auto
+  have zk: "pt_z P = ?k * (pt_z Q)" using assms by (simp add: x_nz cross_y_def nonzero_eq_divide_eq)
+  show ?thesis using k_nz scmult_def xk yk zk by blast
+next
+  assume x_z: "\<not>(pt_x P \<noteq> 0 \<and> pt_x Q \<noteq> 0)"
+  show ?thesis
+  proof cases
+    (* this case almost identical (ideally would be proved by symmetry) *)
+    assume y_nz: "pt_y P \<noteq> 0 \<and> pt_y Q \<noteq> 0"
+    let ?k = "pt_y P / pt_y Q"
+    have k_nz: "?k \<noteq> 0" using y_nz by simp
+    have xk: "pt_x P = ?k * pt_x Q" using assms by (simp add: cross_z_def nonzero_eq_divide_eq y_nz)
+    have yk: "pt_y P = ?k * pt_y Q" using y_nz by simp
+    have zk: "pt_z P = ?k * (pt_z Q)" using assms cross_x_def y_nz by simp
+    show ?thesis using k_nz scmult_def xk yk zk by blast
+  next
+    (* this case almost identical (ideally would be proved by symmetry) *)
+    assume y_z: "\<not>(pt_y P \<noteq> 0 \<and> pt_y Q \<noteq> 0)"
+    show ?thesis
+    proof cases
+      assume z_nz: "pt_z P \<noteq> 0 \<and> pt_z Q \<noteq> 0"
+      let ?k = "pt_z P / pt_z Q"
+      have k_nz: "?k \<noteq> 0" using z_nz by simp
+      have xk: "pt_x P = ?k * pt_x Q" using assms cross_y_def z_nz by auto
+      have yk: "pt_y P = ?k * pt_y Q" using cross_x_def assms nonzero_eq_divide_eq z_nz by fastforce
+      have zk: "pt_z P = ?k * (pt_z Q)" using z_nz by simp
+      show ?thesis using k_nz scmult_def xk yk zk by blast
+    next
+      assume z_z: "\<not>(pt_z P \<noteq> 0 \<and> pt_z Q \<noteq> 0)"
+      (* this case is a contradiction (encapsulated by a1)*)
+      have a1: "\<not>((pt_x P \<noteq> 0 \<and> pt_x Q \<noteq> 0) \<or> (pt_y P \<noteq> 0 \<and> pt_y Q \<noteq> 0) \<or> (pt_z P \<noteq> 0 \<and> pt_z Q \<noteq> 0))"
+        using x_z y_z z_z by auto
+      have x_zero: "pt_x P = 0 \<and> pt_x Q = 0"
+      proof
+        (* if P is zero, Q is also zero *)
+        have "pt_x P = 0 \<Longrightarrow> (pt_x Q) * (pt_y P) = 0 \<and> (pt_x Q) * (pt_z P) = 0"
+          using cross_z_def cross_y_def assms by auto
+        then have p1: "pt_x P = 0 \<Longrightarrow> pt_x Q = 0"
+          using pt_nz by auto
+        (* symmetrically: *)
+        have "pt_x Q = 0 \<Longrightarrow> (pt_x P) * (pt_y Q) = 0 \<and> (pt_x P) * (pt_z Q) = 0"
+          using cross_z_def cross_y_def assms by auto
+        then have p2: "pt_x Q = 0 \<Longrightarrow> pt_x P = 0"
+          using pt_nz by auto
+        show "pt_x P = 0" using a1 p2 by auto
+        show "pt_x Q = 0" using a1 p1 by auto
+      qed
+      (* again, symmetrically *)
+      have y_zero: "pt_y P = 0 \<and> pt_y Q = 0"
+      proof
+        have "pt_y P = 0 \<Longrightarrow> (pt_y Q) * (pt_z P) = 0 \<and> (pt_y Q) * (pt_z P) = 0"
+          using assms cross_x_def by auto
+        then have p1: "pt_y P = 0 \<Longrightarrow> pt_y Q = 0"
+          using pt_nz mult_eq_0_iff x_zero by blast
+        have "pt_y Q = 0 \<Longrightarrow> (pt_y P) * (pt_z Q) = 0 \<and> (pt_y P) * (pt_z Q) = 0"
+          using assms cross_x_def by auto
+        then have p2: "pt_y Q = 0 \<Longrightarrow> pt_y P = 0"
+          using pt_nz mult_eq_0_iff x_zero by blast
+        show "pt_y P = 0" using a1 p2 by auto
+        show "pt_y Q = 0" using a1 p1 by auto
+      qed
+      (* by contradiction *)
+      show ?thesis using pt_nz x_zero y_zero z_z by blast
+    qed
+  qed
+qed
+
+lemma cross_x_inv:
   assumes "\<not>(scmult P Q)"
-  shows "cross P Q \<noteq> Abs_pt (0,0,0)"
-  sorry
+  shows "pt_x (cross P Q) = cross_x P Q"
+  using assms cross_def cross_nz pt_x_inv by fastforce
+
+lemma cross_y_inv:
+  assumes "\<not>(scmult P Q)"
+  shows "pt_y (cross P Q) = cross_y P Q"
+  using assms cross_def cross_nz pt_y_inv by fastforce
+
+lemma cross_z_inv:
+  assumes "\<not>(scmult P Q)"
+  shows "pt_z (cross P Q) = cross_z P Q"
+  using assms cross_def cross_nz pt_z_inv by fastforce
+
+(*
+"cross A B \<noteq> Abs_pt (0,0,0)"
+  unfolding cross_def
+proof (cases "scmult A B")
+  sorry (* TODO *)*)
 
 (* question: why doesn't this work???????? *)
 value "Abs_pt (1 :: real, 1, 1)"
@@ -1502,17 +1608,17 @@ proof -
   let ?x = "pt_y A * pt_z B - pt_z A * pt_y B"
   let ?y = "pt_z A * pt_x B - pt_x A * pt_z B"
   let ?z = "pt_x A * pt_y B - pt_y A * pt_x B"
-  have nz: "cross A B \<noteq> Abs_pt (0, 0, 0)"
-    using assms cross_domain by auto
+  have true_cross: "cross A B = Abs_pt (?x, ?y, ?z)"
+    using assms cross_def by auto
   have x: "pt_x (cross A B) = ?x"
     unfolding cross_def
-    using cross_def nz pt_x_inv by force
+    using cross_def cross_nonzero true_cross pt_x_inv by force
   have y: "pt_y (cross A B) = ?y"
     unfolding cross_def
-    using cross_def nz pt_y_inv by force
+    using cross_def cross_nonzero true_cross pt_y_inv by force
   have z: "pt_z (cross A B) = ?z"
     unfolding cross_def
-    using cross_def nz pt_z_inv by force
+    using cross_def cross_nonzero true_cross pt_z_inv by force
   have p0: "(pt_dot A (cross A B)) = pt_x A * ?x + pt_y A * ?y + pt_z A * ?z"
     using pt_dot_def cross_def x y z by auto
   then have p1: "... = pt_x A * pt_y A * pt_z B - pt_x A * pt_y A * pt_z B
