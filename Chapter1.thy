@@ -1113,12 +1113,7 @@ theorem "projective_plane pmeets"
   using pmeets_p1 pmeets_p2 pmeets_p3 pmeets_p4 by auto
 
 text \<open>\done\<close>
-
-(*
-theorem projectivization_p1: "\<lbrakk>P \<noteq> Q; affine_plane meets; pm = projectivize meets\<rbrakk> \<Longrightarrow>  \<exists>l. pm P l \<and> pm Q l"
-sorry 
-*)             
-              
+ 
 locale projective_plane_quotient =
   projective_plane_data meets
   for meets :: "'point \<Rightarrow> 'line \<Rightarrow> bool" +
@@ -1137,7 +1132,7 @@ definition pt_y where "(pt_y l) = (fst (snd (Rep_pt l)))"
 definition pt_z where "(pt_z l) = (snd (snd (Rep_pt l)))"
 
 (* helpful stuff for pts *)
-lemma pts_eq: "((pt_x a) = (pt_x b) \<and> (pt_y a) = (pt_y b) \<and> (pt_z a) = (pt_z b)) = (a = b)"
+lemma pts_eq: "(pt_x a = pt_x b \<and> pt_y a = pt_y b \<and> pt_z a = pt_z b) = (a = b)"
   by (metis Rep_pt_inject prod.expand pt_x_def pt_y_def pt_z_def)
 
 lemma pt_x_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_x (Abs_pt (x, y, z)) = x"
@@ -1149,11 +1144,16 @@ lemma pt_y_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow
 lemma pt_z_inv: "\<lbrakk>(x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> pt_z (Abs_pt (x, y, z)) = z"
   using Abs_pt_inverse pt_z_def by simp
 
+lemma pt_inv:
+  assumes "pt_x P = x" and "pt_y P = y" and "pt_z P = z"
+  shows "P = Abs_pt (x,y,z)"
+  using Rep_pt_inverse assms(1) assms(2) assms(3) pt_x_def pt_y_def pt_z_def by auto
+
 lemma pt_nz: "\<not>(pt_x P = 0 \<and> pt_y P = 0 \<and> pt_z P = 0)"
   by (metis (mono_tags, lifting) Rep_pt mem_Collect_eq prod.case_eq_if pt_x_def pt_y_def pt_z_def)
 
 (* note: this might work in place of the individual coordinate ones*)
-lemma pt_inv:
+lemma pt_inv2:
   assumes "(x \<noteq> 0) \<or> (y \<noteq> 0) \<or> (z \<noteq> 0)"
   shows "(Rep_pt (Abs_pt (x, y, z))) = (x, y, z)"
   using Abs_pt_inverse assms by auto
@@ -1161,6 +1161,21 @@ lemma pt_inv:
 (* "\<star>" multiplies a pt by a scalar *)
 definition mult_pt:: "real \<Rightarrow> pt \<Rightarrow> pt" (infix "\<star>" 60) where
     "(mult_pt m p) = (Abs_pt ((m * (pt_x p)), (m * (pt_y p)), (m * (pt_z p))))"
+
+lemma mult_pt_x:
+  assumes "m \<noteq> 0"
+  shows "pt_x (m \<star> P) = m * pt_x P"
+  using assms mult_pt_def pt_inv2 pt_nz pt_x_def by auto
+
+lemma mult_pt_y:
+  assumes "m \<noteq> 0"
+  shows "pt_y (m \<star> P) = m * pt_y P"
+  using assms mult_pt_def pt_inv2 pt_nz pt_y_def by auto
+
+lemma mult_pt_z:
+  assumes "m \<noteq> 0"
+  shows "pt_z (m \<star> P) = m * pt_z P"
+  using assms mult_pt_def pt_inv2 pt_nz pt_z_def by auto
 
 (* define dot product on pts*)
 definition pt_dot :: "pt \<Rightarrow> pt \<Rightarrow> real" where
@@ -1247,11 +1262,12 @@ lemma dot_homogeneous:
 (* "scmult a b" iff a is a scalar multiple of b
    This will be quotient for the ppt type *)
 (* TODO: this could be rewritten using mult_pt *)
+(* also, should it be called "colin" maybe? *)
 definition scmult :: "pt \<Rightarrow> pt \<Rightarrow> bool" where
   "scmult a b = (\<exists>m :: real. m \<noteq> 0 \<and> ((pt_x a) = m * (pt_x b)) \<and> ((pt_y a) = m * (pt_y b)) \<and> ((pt_z a) = m * (pt_z b)))"
 
 (* Show that scmult is an equivalence relation *)
-lemma sym_help:
+lemma scmult_sym_help:
   fixes a :: pt fixes b :: pt
   assumes a1: "(scmult a b)"
   shows "(scmult b a)"
@@ -1265,16 +1281,16 @@ lemma sym_help:
       using scmult_def one_divide_eq_0_iff p0 p1 by blast
   qed
 
-lemma sym: "symp scmult"
+lemma scmult_sym: "symp scmult"
   unfolding symp_def
-  using sym_help by blast
+  using scmult_sym_help by blast
 
-lemma ref: "reflp scmult"
+lemma scmult_ref: "reflp scmult"
   unfolding reflp_def
   unfolding scmult_def
   by force
 
-lemma trans_help:
+lemma scmult_trans_help:
   fixes a :: pt fixes b :: pt fixes c :: pt
   assumes a1: "(scmult a b)"
   assumes a2: "(scmult b c)"
@@ -1291,14 +1307,16 @@ lemma trans_help:
       by (smt a1 a2 scmult_def mult_left_cancel mult_not_zero p1)
   qed
 
-lemma trans: "transp scmult"
+lemma scmult_trans: "transp scmult"
   unfolding transp_def
-  using trans_help by blast
+  using scmult_trans_help by blast
 
 (* ppt = "projective" point, i.e., point in homogeneous space *)
 quotient_type ppt = "pt"/"scmult"
   morphisms Rep_ppt Abs_ppt
-  by (simp add: equivpI trans ref sym)
+  by (simp add: equivpI scmult_trans scmult_ref scmult_sym)
+
+type_synonym pln = ppt
 
 (* "dot_zero a b" iff a \<cdot> b = 0. This will define rp2meets. *)
 lift_definition dot_zero :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
@@ -1334,7 +1352,7 @@ lift_definition dot_zero :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
       qed
     qed
 
-definition rp2meets :: "ppt \<Rightarrow> ppt \<Rightarrow> bool" where
+definition rp2meets :: "ppt \<Rightarrow> pln \<Rightarrow> bool" where
   "rp2meets P l = (dot_zero P l)"
 
 (*
@@ -1471,11 +1489,69 @@ lemma cross_z_inv:
   shows "pt_z (cross P Q) = cross_z P Q"
   using assms cross_def cross_nz pt_z_inv by fastforce
 
-(*
-"cross A B \<noteq> Abs_pt (0,0,0)"
-  unfolding cross_def
+lemma true_cross:
+  assumes "\<not>(scmult A B)"
+  shows "cross A B = Abs_pt (cross_x A B, cross_y A B, cross_z A B)"
+  using cross_x_inv cross_y_inv cross_z_inv pt_inv assms by simp
+
+lemma cross_neg_sym:
+  assumes "\<not>(scmult A B)"
+  shows  "cross A B = -1 \<star> (cross B A)"
+proof -
+  let ?x1 = "pt_y A * pt_z B - pt_z A * pt_y B"
+  let ?y1 = "pt_z A * pt_x B - pt_x A * pt_z B"
+  let ?z1 = "pt_x A * pt_y B - pt_y A * pt_x B"
+  have true_ab_cross: "cross A B = Abs_pt (?x1, ?y1, ?z1)"
+    using assms cross_def cross_x_def cross_y_def cross_z_def by simp
+  have x1: "pt_x (cross A B) = ?x1" using assms cross_x_def cross_x_inv by simp
+  have y1: "pt_y (cross A B) = ?y1" using assms cross_y_def cross_y_inv by simp
+  have z1: "pt_z (cross A B) = ?z1" using assms cross_z_def cross_z_inv by simp
+  let ?x2 = "pt_y B * pt_z A - pt_z B * pt_y A"
+  let ?y2 = "pt_z B * pt_x A - pt_x B * pt_z A"
+  let ?z2 = "pt_x B * pt_y A - pt_y B * pt_x A"
+  have a0: "\<not>(scmult B A)" using assms scmult_sym_help by blast
+  hence true_ba_cross: "cross B A = Abs_pt (?x2, ?y2, ?z2)"
+    using cross_def cross_x_def cross_y_def cross_z_def by simp
+  have x2: "pt_x (cross B A) = ?x2" using a0 cross_x_def cross_x_inv by simp
+  have y2: "pt_y (cross B A) = ?y2" using a0 cross_y_def cross_y_inv by simp
+  have z2: "pt_z (cross B A) = ?z2" using a0 cross_z_def cross_z_inv by simp
+
+  have "pt_x (cross A B)  = -1 * pt_x (cross B A)" by (simp add: x1 x2)
+  have "pt_y (cross A B)  = -1 * pt_y (cross B A)" by (simp add: y1 y2)
+  have "pt_z (cross A B)  = -1 * pt_z (cross B A)" by (simp add: z1 z2)
+  show ?thesis by (simp add: mult.commute mult_pt_def true_ab_cross x2 y2 z2)
+qed
+
+lemma cross_scmult_sym: "scmult (cross A B) (cross B A)"
 proof (cases "scmult A B")
-  sorry (* TODO *)*)
+  case True
+  have "scmult A B" using True by simp
+  have p1: "(cross A B) = A" using True cross_def by simp
+  have p2: "(cross B A) = B" using True cross_def scmult_sym_help by auto
+  then show ?thesis using p1 p2 True by simp
+next
+  case False
+  show ?thesis by (simp add: False cross_neg_sym cross_nz
+        cross_x_def cross_y_def cross_z_def mult_pt_x mult_pt_y mult_pt_z)
+qed
+
+(* another proof of the same thing
+lemma cross_scmult_sym: "scmult (cross A B) (cross B A)"
+proof (cases "scmult A B")
+  case True
+  hence p1: "cross A B = A" using cross_def by auto
+  have "scmult B A" using scmult_sym by (simp add: True symp_def)
+  hence p2: "cross B A = B" using cross_def by auto
+  from p1 p2 True show ?thesis by simp
+next
+  case False
+  hence p1: "cross A B = -1 \<star> cross B A" using cross_neg_sym by auto
+  have "pt_x (cross A B) = -1 * pt_x (cross B A)" using p1 mult_pt_x by auto
+  have "pt_y (cross A B) = -1 * pt_y (cross B A)" using p1 mult_pt_y by auto
+  have "pt_z (cross A B) = -1 * pt_z (cross B A)" using p1 mult_pt_z by auto
+  have "(-1 :: real) \<noteq> 0" by simp
+  then show ?thesis by (metis mult_pt_x mult_pt_y mult_pt_z p1 scmult_def)
+qed*)
 
 (* question: why doesn't this work???????? *)
 value "Abs_pt (1 :: real, 1, 1)"
@@ -1600,8 +1676,23 @@ lift_definition pperp :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
   is "\<lambda>P Q. (perp P Q)"
   by (metis Quotient_ppt Quotient_rel_abs dot_zero.abs_eq perp_def)
 
-(* this makes me think maybe scmult should be called "parallel" instead *)
-lemma cross_perp:
+lemma perp_sym: "symp perp"
+  by (simp add: perp_def pt_dot_sym symp_def)
+
+lemma scmult_preserves_perp:
+  assumes "perp a1 b" and "scmult a1 a2"
+  shows "perp a2 b"
+  by (metis assms(1) assms(2) pperp.abs_eq ppt.abs_eq_iff)
+
+lemma cross_sym_preserves_perp:
+  assumes "perp (cross A B) C"
+  shows "perp (cross B A) C"
+proof -
+  have "scmult (cross A B) (cross B A)" using cross_scmult_sym by auto
+  then show ?thesis using scmult_preserves_perp assms by blast
+qed
+
+lemma cross_perp1:
   assumes "\<not>(scmult A B)"
   shows "perp A (cross A B)"
 proof -
@@ -1609,16 +1700,10 @@ proof -
   let ?y = "pt_z A * pt_x B - pt_x A * pt_z B"
   let ?z = "pt_x A * pt_y B - pt_y A * pt_x B"
   have true_cross: "cross A B = Abs_pt (?x, ?y, ?z)"
-    using assms cross_def by auto
-  have x: "pt_x (cross A B) = ?x"
-    unfolding cross_def
-    using cross_def cross_nonzero true_cross pt_x_inv by force
-  have y: "pt_y (cross A B) = ?y"
-    unfolding cross_def
-    using cross_def cross_nonzero true_cross pt_y_inv by force
-  have z: "pt_z (cross A B) = ?z"
-    unfolding cross_def
-    using cross_def cross_nonzero true_cross pt_z_inv by force
+    using assms cross_def cross_x_def cross_y_def cross_z_def by simp
+  have x: "pt_x (cross A B) = ?x" using assms cross_x_def cross_x_inv by simp
+  have y: "pt_y (cross A B) = ?y" using assms cross_y_def cross_y_inv by simp
+  have z: "pt_z (cross A B) = ?z" using assms cross_z_def cross_z_inv by simp
   have p0: "(pt_dot A (cross A B)) = pt_x A * ?x + pt_y A * ?y + pt_z A * ?z"
     using pt_dot_def cross_def x y z by auto
   then have p1: "... = pt_x A * pt_y A * pt_z B - pt_x A * pt_y A * pt_z B
@@ -1631,120 +1716,136 @@ proof -
     using goal perp_def by auto
 qed
 
+lemma cross_perp2:
+  assumes "\<not>scmult A B"
+  shows "perp B (cross A B) "
+proof -
+  have "\<not>scmult B A"
+    using assms scmult_sym_help by auto
+  then have "perp B (cross B A)" using cross_perp1 by auto
+  then show ?thesis using cross_sym_preserves_perp by (meson perp_sym sympD)
+qed
+
+(*  THE BIG TODO
+
+         /\
+    ____/_ \____
+    \  ___\ \  /
+     \/ /  \/ /
+     / /\__/_/\
+    /__\ \_____\
+        \  /
+         \<or>        *)
+
+lemma cross_perp_unique:
+  assumes "\<not>(scmult a b)"
+  assumes "perp P a" and "perp P b"
+  shows "scmult P (cross a b)"
+proof -
+  show ?thesis sorry
+qed
+
 (* there's only one line perpendicular to a plane (two different vectors) *)
 lemma perp_to_scmult:
   assumes "\<not>(scmult a b)"
   assumes "perp a P" assumes "perp b P"
   assumes "perp a Q" assumes "perp b Q"
   shows "scmult P Q"
-  sorry
+proof -
+  have "scmult P (cross a b) \<and> scmult Q (cross a b)"
+    by (simp add: assms cross_perp_unique perp_sym sympD)
+  then show ?thesis by (metis equivp_def ppt_equivp)
+qed
 
-(* same thing with homogeneous types *)
+(* The big goal. If true, it would be a proof for the lift
+   definition of cross_ppt. *)
+lemma cross_scmult:
+  assumes "scmult A B"
+  assumes "scmult C D"
+  shows "scmult (cross A C) (cross B D)"
+proof (cases "\<not>(scmult A C) \<and> \<not>(scmult B D)")
+  case True
+  have p1: "perp (cross A C) A"
+    using True cross_perp1 perp_def pt_dot_sym by simp
+  have "perp (cross B D) B"
+    using True cross_perp1 perp_def pt_dot_sym by simp
+  then have p2: "perp (cross B D) A"
+    (* intuitively, should use perp_sym and scmult_preserves_perp *)
+    by (metis assms(1) pperp.abs_eq ppt.abs_eq_iff)
+  
+  have p3: "perp (cross A C) C"
+    using True cross_perp2 perp_def pt_dot_sym by simp
+  have "perp (cross B D) D"
+    using True cross_perp2 perp_def pt_dot_sym by simp
+  then have p4: "perp (cross B D) C"
+    by (metis assms(2) pperp.abs_eq ppt.abs_eq_iff)
+
+  have "scmult (cross A C) (cross B D)"
+    using perp_to_scmult p1 p2 p3 p4 True by blast
+  then show ?thesis using True by blast
+next
+  case False
+  then have scmult_something: "scmult A C \<or> scmult B D" by simp
+  have "scmult A C \<and> scmult B D"
+    (* intuitively, this should be by scmult_trans, scmult_sym, and assumptions *)
+    by (meson Quotient3_ppt assms(1) assms(2) equals_rsp scmult_something)
+  then have "cross A C = A \<and> cross B D = B" using cross_def by simp
+  then show ?thesis using assms(1) by auto
+qed
+
+lift_definition cross_ppt :: "ppt \<Rightarrow> ppt \<Rightarrow> ppt" is
+  "\<lambda>p q. cross p q"
+  using cross_scmult by simp
+
+(* =========================
+    reprove everything now
+   ========================= *)
+lemma cross_ppt_sym: "cross_ppt A B = cross_ppt B A"
+  using cross_scmult_sym by transfer
+                                                               
+lemma cross_pperp1: "\<lbrakk>A \<noteq> B\<rbrakk> \<Longrightarrow> pperp A (cross_ppt A B)"
+  using cross_perp1 by transfer
+
+lemma cross_pperp2: "\<lbrakk>A \<noteq> B\<rbrakk> \<Longrightarrow> pperp B (cross_ppt A B)"
+  using cross_perp2 by transfer
+
+lemma cross_pperp_unique: "\<lbrakk>P \<noteq> Q; pperp l P; pperp l Q\<rbrakk> \<Longrightarrow> l = cross_ppt P Q"
+  using cross_perp_unique by transfer
+
+(* restatement of above *)
 lemma doubly_pperp:
   assumes "a \<noteq> b"
   assumes "pperp a P" assumes "pperp b P"
   assumes "pperp a Q" assumes "pperp b Q"
   shows "P = Q"
-  sorry
+  using assms cross_pperp_unique by blast
 
-(* The big goal. If true, it would be a proof for the lift
-   definition of cross_ppt. Unfortunately, it's only true assuming
-   that \<not>(scmult A C) and \<not>(scmult B D). But that assumption
-   won't work for the lift definition. *)
-lemma cross_scmult:
-  assumes "scmult A B"
-  assumes "scmult C D"
-  shows "scmult (cross A C) (cross B D)"
-proof -
-  have "perp (cross A C) A"
-    sorry (*by (simp add: cross_perp perp_def pt_dot_sym)*)
-  have "perp (cross B D) B"
-    sorry (*by (simp add: cross_perp perp_def pt_dot_sym)*)
-  show ?thesis
-    using assms(1) cross_perp pperp_def perp_def perp_to_scmult
+(* a funny thing: this one I can't prove by transfer, because
+   it forgets about the assumption... *)
+lemma cross_pperp1:
+  assumes "A \<noteq> B"
+  shows "pperp A (cross_ppt A B)"
+  apply transfer
+  nitpick
   oops
-
-lift_definition cross_ppt :: "ppt \<Rightarrow> ppt \<Rightarrow> ppt" is
-  "\<lambda>p q. cross p q"
-  (*using cross_scmult by simp*)
-  oops
-
-(* Another possible option: manually use Rep_ppt, return a pt.
-   This seems inelegant. Not sure if it just pushes the problem
-   down the road. *)
-definition cross_ppt :: "ppt \<Rightarrow> ppt \<Rightarrow> pt" where
-  "cross_ppt P Q = cross (Rep_ppt P) (Rep_ppt Q)"
-
-(* Here are some  ideas for how to get to axiom 1 from the
-   new cross_ppt that returns a pt *)
-lemma connecting_line_help:
-  fixes P :: pt and Q :: pt and l :: pt
-  assumes nh: "\<not>(scmult P Q)"
-  assumes a1: "l = (cross P Q)"
-  shows "(pt_dot P l) = 0 \<and> (pt_dot Q l) = 0"
-proof -
-  let ?lx = "(pt_y P) * (pt_z Q) - (pt_z P) * (pt_y Q)"
-  let ?ly = "(pt_z P) * (pt_x Q) - (pt_x P) * (pt_z Q)"
-  let ?lz = "(pt_x P) * (pt_y Q) - (pt_y P) * (pt_x Q)"
-  have l_nz: "?lx \<noteq> 0 \<or> ?ly \<noteq> 0 \<or> ?lz \<noteq> 0"
-    sorry
-  have x: "l = (Abs_pt (?lx, ?ly, ?lz))"
-    using a1 cross_def by simp
-  have lx: "(pt_x l) = ?lx"
-    using x l_nz pt_x_def pt_inv by auto
-  have ly: "(pt_y l) = ?ly"
-    using x l_nz pt_y_def pt_inv by auto
-  have lz: "(pt_z l) = ?lz"
-    using x l_nz pt_z_def pt_inv by auto
-  have "(pt_dot P l) = (pt_x P) * ?lx + (pt_y P) * ?ly + (pt_z P) * ?lz"
-    by (simp add: lx ly lz pt_dot_def)
-
-  then have p3: "(pt_dot P l) = 0"
-    by argo
-  have "(pt_dot Q l) = (pt_x Q) * ?lx + (pt_y Q) * ?ly + (pt_z Q) * ?lz"
-    by (simp add: lx ly lz pt_dot_def)
-  then have p4: "(pt_dot Q l) = 0"
-    by argo
-
-  show ?thesis
-    using p3 p4 by blast
-qed
 
 lemma connecting_line:
-  fixes P :: ppt and Q :: ppt and l :: pt
-  assumes ne: "P \<noteq> Q"
+  assumes "P \<noteq> Q"
   assumes "l = (cross_ppt P Q)"
-  shows "rp2meets P (Abs_ppt l) \<and> rp2meets Q (Abs_ppt l)"
-proof -
-  let ?p = "(Rep_ppt P)"
-  let ?q = "(Rep_ppt Q)"
-  have a0: "\<not>(scmult ?p ?q)"
-    by (meson Quotient_ppt Quotient_rel_rep ne)
-  have p1: "(pt_dot ?p l) = 0 \<and> (pt_dot ?q l) = 0"
-    (*using a0 assms(2) connecting_line_help cross_ppt_def by auto*)
-    sorry
-  have p2: "(dot_zero P (Abs_ppt l)) \<and> (dot_zero Q (Abs_ppt l))"
-    by (metis Quotient3_abs_rep Quotient3_ppt dot_zero.abs_eq p1)
-  show ?thesis
-    using p2 rp2meets_def by auto
-qed
+  shows "rp2meets P l \<and> rp2meets Q l"
+  using assms cross_pperp1 cross_pperp2 dot_zero.rep_eq perp_def pperp.rep_eq rp2meets_def by auto
 
 lemma unique_connecting_line:
-  fixes P :: ppt and Q :: ppt and l :: ppt
-  assumes ne: "P \<noteq> Q"
-  assumes mts: "rp2meets P l \<and> rp2meets Q l"
-  shows "l = (Abs_ppt (cross_ppt P Q))"
+  assumes "P \<noteq> Q"
+  assumes "rp2meets P l \<and> rp2meets Q l"
+  shows "l = cross_ppt P Q"
 proof -
-  have "(dot_zero P l)"
-    using mts rp2meets_def by auto
-  have "(dot_zero Q l)"
-    using mts rp2meets_def by auto
-  have "(pt_dot (Rep_ppt P) (Rep_ppt l)) = 0"
-    using \<open>dot_zero P l\<close> dot_zero.rep_eq by blast
-  (*have "(pt_x P) * (pt_x l) + (pt_y P) * (pt_y l) + (pt_z P) * (pt_z l) = 0"
-    sorry*)
-  show ?thesis
-    sorry
+  (* quick & dirty *)
+  have p0: "pperp P l \<and> pperp Q l"
+    using assms(2) dot_zero.rep_eq perp_def pperp.rep_eq rp2meets_def by blast
+  have "pperp P (cross_ppt P Q) \<and> pperp Q (cross_ppt P Q)" using connecting_line
+    by (simp add: assms(1) cross_pperp1 cross_pperp2)
+  then show ?thesis using doubly_pperp p0 assms(1) by blast
 qed
 
 lemma proj_plane_axiom_1: "P \<noteq> Q \<Longrightarrow> \<exists>!l. rp2meets P l \<and> rp2meets Q l"
