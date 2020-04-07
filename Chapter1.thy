@@ -1355,32 +1355,6 @@ lift_definition dot_zero :: "ppt \<Rightarrow> ppt \<Rightarrow> bool"
 definition rp2meets :: "ppt \<Rightarrow> pln \<Rightarrow> bool" where
   "rp2meets P l = (dot_zero P l)"
 
-(*
-  =======================================
-   Magnitude stuff (works but abandoned)
-  =======================================
-
-definition mag2 :: "pt \<Rightarrow> real" where
-  "mag2 P = (pt_x P)*(pt_x P) + (pt_y P)*(pt_y P) + (pt_z P)*(pt_z P)"
-
-lemma nz_coord: "(pt_x P) \<noteq> 0 \<or> (pt_y P) \<noteq> 0 \<or> (pt_z P) \<noteq> 0"
-  by (smt Rep_pt mem_Collect_eq prod.sel(1) prod.sel(2) prod.simps(2) prod_eqI pt_x_def pt_y_def pt_z_def)
-
-lemma mag2pos: "mag2 P > 0"
-proof -
-  have xpos: "(pt_x P)*(pt_x P) \<ge> 0"
-    by simp
-  have ypos: "(pt_y P)*(pt_y P) \<ge> 0"
-    by simp
-  have zpos: "(pt_z P)*(pt_z P) \<ge> 0"
-    by simp
-  have some_nz: "(pt_x P)*(pt_x P) \<noteq> 0 \<or> (pt_y P)*(pt_y P) \<noteq> 0 \<or> (pt_z P)*(pt_z P) \<noteq> 0"
-    using nz_coord by auto
-  show ?thesis
-    by (smt mag2_def some_nz xpos ypos zpos)
-qed
-*)
-
 (* Goal: define cross products on ppts by lifting this. *)
 definition cross_x :: "pt \<Rightarrow> pt \<Rightarrow> real" where
   "cross_x P Q = (pt_y P) * (pt_z Q) - (pt_z P) * (pt_y Q)"
@@ -1535,139 +1509,10 @@ next
         cross_x_def cross_y_def cross_z_def mult_pt_x mult_pt_y mult_pt_z)
 qed
 
-(* another proof of the same thing
-lemma cross_scmult_sym: "scmult (cross A B) (cross B A)"
-proof (cases "scmult A B")
-  case True
-  hence p1: "cross A B = A" using cross_def by auto
-  have "scmult B A" using scmult_sym by (simp add: True symp_def)
-  hence p2: "cross B A = B" using cross_def by auto
-  from p1 p2 True show ?thesis by simp
-next
-  case False
-  hence p1: "cross A B = -1 \<star> cross B A" using cross_neg_sym by auto
-  have "pt_x (cross A B) = -1 * pt_x (cross B A)" using p1 mult_pt_x by auto
-  have "pt_y (cross A B) = -1 * pt_y (cross B A)" using p1 mult_pt_y by auto
-  have "pt_z (cross A B) = -1 * pt_z (cross B A)" using p1 mult_pt_z by auto
-  have "(-1 :: real) \<noteq> 0" by simp
-  then show ?thesis by (metis mult_pt_x mult_pt_y mult_pt_z p1 scmult_def)
-qed*)
-
 (* question: why doesn't this work???????? *)
 value "Abs_pt (1 :: real, 1, 1)"
 (* I'd like to be able to say something like this *)
 value "(cross (Abs_pt (1, 1, 1)) (Abs_pt (1, 1, 1)))"
-
-(* 
-  ========================================================
-   Related stuff that, in light of the fundamental issue
-   (how to prove cross_domain) is probably all junk:
-  ========================================================
-
-lemma pts_eq1:
-  fixes P fixes Q
-  assumes "pt_x P = pt_x Q"
-  assumes "pt_y P = pt_y Q"
-  assumes "pt_z P = pt_z Q"
-  shows "P = Q"
-  using assms(1) assms(2) assms(3) pts_eq by blast
-
-lemma pts_uneq:
-  assumes "pt_x P \<noteq> pt_x Q \<or> pt_y P \<noteq> pt_y Q \<or> pt_z P \<noteq> pt_z Q"
-  shows "P \<noteq> Q"
-  using assms by blast
-
-lemma coord_helper_x:
-  assumes "x \<noteq> 0"
-  assumes "P = Abs_pt (x, y, z)"
-  shows "pt_x P = x"
-  by (simp add: Abs_pt_inverse assms(1) assms(2) pt_x_def)
-
-lemma "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (m \<star> A) = m * pt_x A"
-  unfolding mult_pt_def
-  using Chapter1.dot_homog_helper_x by simp
-
-lemma "\<lbrakk>t \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> (Rep_pt (Abs_pt t)) = t"
-  using Abs_pt_inverse by blast
-
-lemma "\<lbrakk>m \<noteq> 0; (x, y, z) \<noteq> (0, 0, 0)\<rbrakk> \<Longrightarrow> m \<star> (Abs_pt (x, y, z)) = (Abs_pt (m * x, m * y, m * z))"
-  using Abs_pt_inverse mult_pt_def pt_x_def pt_y_def pt_z_def by simp
-*)
-
-(* 
-  ========================================================
-   Various attempts to show the exact effect of scalar
-   multiplication on cross product. These all go nowhere.
-   Later abandoned.
-  ========================================================
-
-lemma "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> (cross (m \<star> A) B) = m \<star> (cross A B)"
-proof -
-  let ?x = "pt_y A * pt_z B - pt_z A * pt_y B"
-  let ?y = "pt_z A * pt_x B - pt_x A * pt_z B"
-  let ?z = "pt_x A * pt_y B - pt_y A * pt_x B"
-  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_y (m \<star> A) * pt_z B - pt_z (m \<star> A) * pt_y B
-        = m * pt_y A * pt_z B - m * pt_z A * pt_y B"
-    by (simp add: mult_pt_def dot_homog_helper_y dot_homog_helper_z)
-  then have x_eq: "... = m * ?x"
-    by argo
-  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (m \<star> A) * pt_x B - pt_x (m \<star> A) * pt_z B
-        = m * pt_z A * pt_x B - m * pt_x A * pt_z B"
-    by (simp add: mult_pt_def dot_homog_helper_z dot_homog_helper_x)
-  then have y_eq: "... = m * ?y"
-    by argo
-  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (m \<star> A) * pt_y B - pt_y (m \<star> A) * pt_x B
-        = m * pt_x A * pt_y B - m * pt_y A * pt_x B"
-    by (simp add: mult_pt_def dot_homog_helper_x dot_homog_helper_y)
-  then have z_eq: "... = m * ?z"
-    by argo
-  show ?thesis
-    oops
-qed
-
-lemma
-  fixes m
-  assumes m_nz: "m \<noteq> 0"
-  fixes A fixes B
-  shows "(cross (m \<star> A) B) = m \<star> (cross A B)"
-  unfolding cross_def
-proof -
-  let ?x = "pt_y A * pt_z B - pt_z A * pt_y B"
-  let ?y = "pt_z A * pt_x B - pt_x A * pt_z B"
-  let ?z = "pt_x A * pt_y B - pt_y A * pt_x B"
-  have "pt_y (m \<star> A) * pt_z B - pt_z (m \<star> A) * pt_y B
-        = m * pt_y A * pt_z B - m * pt_z A * pt_y B"
-    by (simp add: m_nz mult_pt_def dot_homog_helper_y dot_homog_helper_z)
-  then have x_eq: "... = m * ?x"
-    by argo
-  then have "pt_x (cross (m \<star> A) B) = m * (pt_x (cross A B))"
-    oops
-  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_z (m \<star> A) * pt_x B - pt_x (m \<star> A) * pt_z B
-        = m * pt_z A * pt_x B - m * pt_x A * pt_z B"
-    by (simp add: m_nz mult_pt_def dot_homog_helper_z dot_homog_helper_x)
-  then have y_eq: "... = m * ?y"
-    by argo
-  have "\<lbrakk>m \<noteq> 0\<rbrakk> \<Longrightarrow> pt_x (m \<star> A) * pt_y B - pt_y (m \<star> A) * pt_x B
-        = m * pt_x A * pt_y B - m * pt_y A * pt_x B"
-    by (simp add: m_nz mult_pt_def dot_homog_helper_x dot_homog_helper_y)
-  then have z_eq: "... = m * ?z"
-    by argo
-qed
-
-lemma "(cross (m1 \<star> A) (m2 \<star> B)) = m1 * m2 \<star> (cross A B)"
-  unfolding cross_def
-  unfolding mult_pt_def
-  oops
-*)
-
-
-
-
-(* 
-  ========================================================
-   The new strategy: ignore magnitudes. This is better.
-  ========================================================
-*)
 
 definition perp :: "pt \<Rightarrow> pt \<Rightarrow> bool" where
   "perp A B = (pt_dot A B = 0)"
@@ -1726,16 +1571,7 @@ proof -
   then show ?thesis using cross_sym_preserves_perp by (meson perp_sym sympD)
 qed
 
-(*  THE BIG TODO
-
-         /\
-    ____/_ \____
-    \  ___\ \  /
-     \/ /  \/ /
-     / /\__/_/\
-    /__\ \_____\
-        \  /
-         \<or>        *)
+(*  THE BIG TODO *)
 
 lemma cross_perp_unique:
   assumes "\<not>(scmult a b)"
